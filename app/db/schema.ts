@@ -21,9 +21,15 @@ export const users = pgTable("user", {
   name: text("name"),
   email: text("email").unique(),
   password: text("password"),
+  dingdingUnionId: text("dingdingUnionId"),
+  wecomUserId: text("wecomUserId"),
+  feishuUserId: text("feishuUserId"),
+  feishuOpenId: text("feishuOpenId"),
+  feishuUnionId: text("feishuUnionId"),
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   isAdmin: boolean("isAdmin").default(false),
   image: text("image"),
+  groupId: text("groupId"),
   createdAt: timestamp('created_at').defaultNow(),
 })
 
@@ -126,7 +132,10 @@ export const llmModels = pgTable("models", {
   maxTokens: integer(),
   supportVision: boolean('support_vision').default(false),
   selected: boolean('selected').default(true),
-  providerId: varchar({ length: 255 }).notNull(),
+  providerId: varchar({ length: 255 }).notNull().references(() => llmSettingsTable.provider, {
+    onDelete: 'cascade',
+    onUpdate: 'cascade'
+  }),
   providerName: varchar({ length: 255 }).notNull(),
   type: modelType('type').notNull().default('default'),
   order: integer('order').default(1),
@@ -153,6 +162,8 @@ export const chats = pgTable("chats", {
   title: varchar({ length: 255 }).notNull(),
   historyType: historyType('history_type').notNull().default('count'),
   historyCount: integer('history_count').default(5).notNull(),
+  defaultModel: varchar('default_model'),
+  defaultProvider: varchar('default_provider'),
   isStar: boolean('is_star').default(false),
   isWithBot: boolean('is_with_bot').default(false),
   botId: integer('bot_id'),
@@ -223,27 +234,18 @@ export interface BotType {
 }
 
 export type UserType = typeof users.$inferSelect;
-export type llmModelType = typeof llmModels.$inferSelect;
-export type llmModelTypeWithAllInfo = {
-  id: number;
-  name: string;
-  displayName: string;
-  maxTokens: number | null;
-  supportVision: boolean | null;
-  selected: boolean | null;
-  providerId: string;
-  providerName: string;
+
+export type llmModelType = typeof llmModels.$inferSelect & {
   providerLogo?: string;
-  type: "default" | "custom";
-  createdAt: Date | null;
-  updatedAt: Date | null;
-}
+};
+
 export type llmSettingsType = typeof llmSettingsTable.$inferSelect;
 
 export interface ChatType {
   id: string;
   title?: string;
   defaultModel?: string;
+  defaultProvider?: string,
   historyType?: 'all' | 'none' | 'count';
   historyCount?: number;
   isStar?: boolean;
@@ -279,3 +281,29 @@ export interface Message {
   errorMessage?: string,
   createdAt: Date;
 }
+export const groupModelType = pgEnum('group_model_type', ['all', 'specific'])
+
+export const groups = pgTable("groups", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  modelType: groupModelType('model_type').notNull().default('all'),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+
+export const groupModels = pgTable("group_models", {
+  groupId: text("groupId").notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  modelId: integer("modelId").notNull().references(() => llmModels.id, { onDelete: 'cascade' }),
+},
+  (groupModels) => [
+    {
+      compositePK: primaryKey({
+        columns: [groupModels.groupId, groupModels.modelId],
+      }),
+    }
+  ]
+)
+
+

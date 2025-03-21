@@ -3,14 +3,20 @@ import React from 'react'
 import { Select, ConfigProvider } from "antd";
 import { Avatar } from "antd";
 import useModelListStore from '@/app/store/modelList';
+import { updateChatInServer } from '@/app/chat/actions/chat';
 import { useTranslations } from 'next-intl';
 
-const ModelSelect = () => {
+const ModelSelect = ({ chatId }: { chatId: string | null }) => {
   const { modelList, currentModel, allProviderListByKey, providerList, isPending, setCurrentModelExact } = useModelListStore();
   const t = useTranslations('Chat');
   const handleChangeModel = (value: string) => {
+    localStorage.setItem('lastSelectedModel', value);
     const [providerId, modelId] = value.split('|');
     setCurrentModelExact(providerId, modelId);
+    // 修改当前对话的默认模型
+    if (chatId) {
+      updateChatInServer(chatId, { defaultProvider: providerId, defaultModel: modelId })
+    }
   };
 
   if (isPending) {
@@ -52,7 +58,6 @@ const ModelSelect = () => {
 
           <span className='ml-1'>{model.displayName}</span>
         </div>),
-        // value: model.id,
         value: `${model.provider.id}|${model.id}`,
       }))
     }

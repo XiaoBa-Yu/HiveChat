@@ -12,15 +12,16 @@ import { useSession } from 'next-auth/react';
 import { useLoginModal } from '@/app/contexts/loginModalContext';
 import { addChatInServer } from '@/app/chat/actions/chat';
 import { addMessageInServer } from '@/app/chat/actions/message';
+import { fetchAppSettings } from '@/app/chat/actions/chat';
 import { ChatType } from '../db/schema';
 import { localDb } from '@/app/db/localDb';
 
 const Home = () => {
   const t = useTranslations('Chat');
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const { visible, showLogin, hideLogin } = useLoginModal();
-  const { modelList, currentModel, isPending } = useModelListStore();
+  const { modelList, currentModel, setCurrentModelExact, isPending } = useModelListStore();
   const { chatList, setChatList } = useChatListStore();
   const [greetingText, setGreetingText] = useState('');
   const [showGuideAlert, setShowGuideAlert] = useState(false);
@@ -38,6 +39,43 @@ const Home = () => {
       setShowGuideAlert(false);
     }
   }, [isPending, modelList]);
+
+  useEffect(() => {
+    const fetchDefaultChatModel = async () => {
+      const resultValue = await fetchAppSettings('defaultChatModel');
+
+      if (resultValue && resultValue !== 'lastSelected') {
+        const [providerId, modelId] = resultValue.split('|');
+        // 检查获取的模型是否在当前可用的模型列表中
+        const modelExists = modelList.some(model =>
+          model.id === modelId && model.provider.id === providerId
+        );
+
+        if (modelExists) {
+          setCurrentModelExact(providerId, modelId);
+          return;
+        }
+      }
+
+      const lastSelectedModel = localStorage.getItem('lastSelectedModel');
+      if (lastSelectedModel) {
+        const [providerId, modelId] = lastSelectedModel.split('|');
+        const matchedModel = modelList.find(model =>
+          model.id === modelId && model.provider.id === providerId
+        );
+        if (matchedModel) {
+          setCurrentModelExact(providerId, modelId);
+        } else {
+          setCurrentModelExact(modelList[0].provider.id, modelList[0].id);
+        }
+      } else {
+        setCurrentModelExact(modelList[0].provider.id, modelList[0].id);
+      }
+    }
+    if (modelList.length > 0) {
+      fetchDefaultChatModel();
+    }
+  }, [setCurrentModelExact, modelList]);
 
   useEffect(() => {
     function getGreeting(): string {
@@ -76,7 +114,11 @@ const Home = () => {
       content = text;
     }
 
-    const result = await addChatInServer({ title: t('defaultChatName') });
+    const result = await addChatInServer({
+      title: t('defaultChatName'),
+      defaultModel: currentModel.id,
+      defaultProvider: currentModel.provider.id,
+    });
     if (result.status === 'success') {
       const initInfo = {
         id: result.data?.id,

@@ -28,7 +28,11 @@ export async function POST(req: NextRequest) {
     const realApikey = userRequestHeaders.get('X-Apikey') || apikey;
     let realEndpoint = '';
     if (xProvider === 'gemini') {
-      realEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${xModel}:streamGenerateContent?alt=sse&key=${realApikey}`;
+      if (endpoint && endpoint.trim() !== '') {
+        realEndpoint = `${endpoint}/v1beta/models/${xModel}:streamGenerateContent?alt=sse&key=${realApikey}`;
+      } else {
+        realEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${xModel}:streamGenerateContent?alt=sse&key=${realApikey}`;
+      }
     } else if (xEndpoint) {
       // 如有有自定义，优先用传过来的自定义，用户测试
       realEndpoint = await completeEndpoint(xProvider as string, xEndpoint);
@@ -46,6 +50,7 @@ export async function POST(req: NextRequest) {
     // Claude 特殊，用 x-apikey
     if (xProvider === 'claude') {
       headers.set('x-api-key', realApikey || '');
+      headers.set('anthropic-version', '2023-06-01'); // 添加必须的版本号
     }
     // 获取请求体
     const body = await req.text();

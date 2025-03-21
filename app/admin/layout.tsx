@@ -7,6 +7,7 @@ import { SettingOutlined, LogoutOutlined, RollbackOutlined, UserOutlined } from 
 import clsx from 'clsx';
 import { usePathname } from 'next/navigation';
 import logo from "@/app/images/logo.png";
+import Assistant from "@/app/images/assistant.svg";
 import Spark from "@/app/images/spark.svg";
 import { useSession, signOut } from 'next-auth/react';
 import SpinLoading from '@/app/components/loading/SpinLoading';
@@ -45,8 +46,13 @@ export default function RootLayout({
             <Spark width={22} height={22} alt='spark' /><span className='ml-1 text-sm'>{t('models')}</span>
           </Link>
         </div>
+        <div className={clsx('hover:bg-gray-200 rounded-lg p-2 mt-1', { 'bg-gray-200': pathname.startsWith('/admin/default-models') })}>
+          <Link className='w-full flex items-center' href={"/admin/default-models"}>
+            <Assistant style={{ 'marginLeft': '3px' }} /><span className='ml-2 text-sm'>默认模型</span>
+          </Link>
+        </div>
         <div className={clsx('hover:bg-gray-200 rounded-lg p-2 mt-1', { 'bg-gray-200': pathname.startsWith('/admin/users') })}>
-          <Link className='w-full flex' href={"/admin/users"}>
+          <Link className='w-full flex' href={"/admin/users/list"}>
             <UserOutlined style={{ 'marginLeft': '3px' }} /><span className='ml-2 text-sm'>{t('users')}</span>
           </Link>
         </div>

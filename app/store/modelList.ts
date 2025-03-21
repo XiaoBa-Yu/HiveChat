@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { LLMModel, LLMModelProvider } from '@/app/adapter/interface';
-import { llmModelTypeWithAllInfo } from '@/app/db/schema';
+import { LLMModel, LLMModelProvider, LLMModelRealId } from '@/app/adapter/interface';
+import { llmModelType } from '@/app/db/schema';
 
 interface IModelListStore {
   currentModel: LLMModel;
@@ -9,9 +9,11 @@ interface IModelListStore {
   allProviderListByKey: { [key: string]: LLMModelProvider } | null;
   allProviderList: LLMModelProvider[];
   modelList: LLMModel[];
+  modelListRealId: LLMModelRealId[];
   isPending: Boolean;
   setIsPending: (isPending: boolean) => void;
-  initModelList: (initModels: llmModelTypeWithAllInfo[]) => Promise<void>;
+  initModelListRealId: (initModels: llmModelType[]) => Promise<void>;
+  initModelList: (initModels: llmModelType[]) => void;
   setModelList: (newOrderModels: LLMModel[]) => void;
   setAllProviderList: (newProviderList: LLMModelProvider[]) => void; //排序
   initAllProviderList: (initModels: LLMModelProvider[]) => Promise<void>;
@@ -44,6 +46,7 @@ const useModelListStore = create<IModelListStore>((set, get) => ({
   allProviderListByKey: null,
   allProviderList: [],
   modelList: [],
+  modelListRealId: [],
   isPending: true,
   setIsPending: (isPending: boolean) => {
     set((state) => ({
@@ -63,7 +66,7 @@ const useModelListStore = create<IModelListStore>((set, get) => ({
       modelList: newOrderModels,
     }));
   },
-  initModelList: async (initModels: llmModelTypeWithAllInfo[]) => {
+  initModelList: (initModels: llmModelType[]) => {
     const newData = initModels.map((model) => ({
       id: model.name,
       displayName: model.displayName,
@@ -98,6 +101,43 @@ const useModelListStore = create<IModelListStore>((set, get) => ({
     }));
 
   },
+  initModelListRealId: async (initModels: llmModelType[]) => {
+    const newData = initModels.map((model) => ({
+      id: model.id,
+      name: model.name,
+      displayName: model.displayName,
+      maxTokens: model.maxTokens || undefined,
+      supportVision: model.supportVision || undefined,
+      selected: model.selected || false,
+      type: model.type ?? 'default',
+      provider: {
+        id: model.providerId,
+        providerName: model.providerName,
+        providerLogo: model.providerLogo,
+      }
+    }));
+
+    const providerList = Array.from(
+      new Map(
+        initModels.map((model) => [
+          model.providerId,
+          {
+            id: model.providerId,
+            providerName: model.providerName,
+            providerLogo: model.providerLogo,
+            status: true,
+          }
+        ])
+      ).values()
+    );
+
+    set((state) => ({
+      ...state,
+      providerList,
+      modelListRealId: newData,
+    }));
+
+  },
   initAllProviderList: async (providers: LLMModelProvider[]) => {
     const providerByKey = providers.reduce<{ [key: string]: LLMModelProvider }>((result, provider) => {
       result[provider.id] = provider;
@@ -116,7 +156,6 @@ const useModelListStore = create<IModelListStore>((set, get) => ({
       if (!(state.currentModel.id === modelId && state.currentModel.provider.id === providerId)) {
         const modelInfo = state.modelList.find(m => (m.id === modelId && m.provider.id === providerId));
         if (modelInfo) {
-          localStorage.setItem('lastSelectedModel', modelInfo.id);
           return {
             ...state,
             currentModel: modelInfo,
@@ -125,7 +164,7 @@ const useModelListStore = create<IModelListStore>((set, get) => ({
           return state;
         }
       }
-      return state; // 如果相同，则返回当前状态
+      return state;
     });
   },
   setCurrentModel: (modelId: string) => {
@@ -134,7 +173,6 @@ const useModelListStore = create<IModelListStore>((set, get) => ({
       if (state.currentModel?.id !== modelId) {
         const modelInfo = state.modelList.find(m => m.id === modelId);
         if (modelInfo) {
-          localStorage.setItem('lastSelectedModel', modelInfo.id);
           return {
             ...state,
             currentModel: modelInfo,
@@ -143,7 +181,7 @@ const useModelListStore = create<IModelListStore>((set, get) => ({
           return state;
         }
       }
-      return state; // 如果相同，则返回当前状态
+      return state;
     });
   },
 
